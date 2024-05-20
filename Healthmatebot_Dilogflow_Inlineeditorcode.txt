@@ -1,0 +1,128 @@
+'use strict';
+
+const functions = require('firebase-functions');
+const { WebhookClient } = require('dialogflow-fulfillment');
+const axios = require('axios');
+
+process.env.DEBUG = 'dialogflow:debug';
+
+function getPhysiciansByHealthCondition(healthCondition) {
+  return axios.get('https://sheetdb.io/api/v1/04p6gz3yvewgr')
+    .then(response => {
+      const data = response.data;
+      return data.filter(item => item['Health Condition'].toLowerCase() === healthCondition.toLowerCase());
+    })
+    .catch(error => {
+      throw new Error('Error fetching physicians data');
+    });
+}
+
+function getHospitalsBySpecialtyAndZipCode(specialty, zipCode) {
+  const encodedSpecialty = encodeURIComponent(specialty);
+  return axios.get(`https://sheetdb.io/api/v1/mu7yln1i1nqds?Physician=${encodedSpecialty}&ZIP%20Code=${zipCode}`)
+    .then(response => {
+      return response.data.filter(hospital => hospital.Physician.toLowerCase() === specialty.toLowerCase() && hospital['ZIP Code'] === zipCode);
+    })
+    .catch(error => {
+      throw new Error('Error fetching hospitals data');
+    });
+}
+
+function processUserQuery(agent) {
+  const parameters = agent.parameters;
+  const healthCondition = parameters.HealthCondition;
+  const zipCode = parameters.ZipCode;
+
+  return getPhysiciansByHealthCondition(healthCondition)
+    .then(matchingPhysicians => {
+      if (matchingPhysicians.length > 0) {
+        const specialty = matchingPhysicians[0].Physician.toLowerCase();
+        return getHospitalsBySpecialtyAndZipCode(specialty, zipCode)
+          .then(hospitals => {
+            if (hospitals.length > 0) {
+              let hospitalsInfo = '';
+              hospitals.slice(0, 5).forEach((hospital, index) => {
+                hospitalsInfo += `
+${index + 1}. First Name: ${hospital.frst_nm}\n   Last Name: ${hospital.lst_nm}\n   Physician: ${hospital.Physician}\n   Address: ${hospital.adr_ln_1}\n   City: ${hospital['City/Town']}\n   State: ${hospital.State}\n   ZIP Code: ${hospital['ZIP Code']}\n   -----------------------------\n`;
+              });
+              agent.add(hospitalsInfo);
+            } else {
+              agent.add(`No hospitals found for ${healthCondition} near the zip code you have provided.`);
+            }
+          });
+      } else {
+        agent.add(`I'm sorry, I couldn't find information for ${healthCondition}. Our database is continually expanding. Please check back later. Meanwhile, you may find this information on reputable medical websites. Thank you for using our service.`);
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      agent.add('Sorry, something went wrong. Please try again later.');
+    });
+}
+
+function welcome(agent) {
+  agent.add(`Welcome to my agent!`);
+}
+
+function fallback(agent) {
+  agent.add(`I didn't understand`);
+  agent.add(`I'm sorry, can you try again?`);
+}
+
+function getHealthConditionSummary(agent) {
+  const healthCondition = agent.parameters.HealthCondition;
+  const apiUrl = 'https://sheetdb.io/api/v1/04p6gz3yvewgr';
+
+  return axios.get(apiUrl)
+    .then((response) => {
+      const data = response.data;
+      const entry = data.find((item) => item['Health Condition'].toLowerCase() === healthCondition.toLowerCase());
+
+      if (entry) {
+        agent.add(entry.Summary);
+      } else {
+        agent.add(`I'm sorry, I couldn't find information for ${healthCondition}. Our database is continually expanding. Please check back later. Meanwhile, you may find this information on reputable medical websites. Thank you for using our service.`);
+      }
+    })
+    .catch((error) => {
+      console.error('Error fetching data from the API:', error);
+      agent.add('Sorry, something went wrong. Please try again later.');
+    });
+}
+
+function getPhysicianDetails(agent) {
+  const healthCondition = agent.parameters.HealthCondition;
+  const apiUrl = 'https://sheetdb.io/api/v1/04p6gz3yvewgr';
+
+  return axios.get(apiUrl)
+    .then((response) => {
+      const data = response.data;
+      const entry = data.find((item) => item['Health Condition'].toLowerCase() === healthCondition.toLowerCase());
+
+      if (entry) {
+        agent.add(`The medical specialty(department) for treating ${healthCondition} is ${entry.Physician}.`);
+      } else {
+        agent.add(`I'm sorry, I couldn't find physician department information for ${healthCondition}. Our database is continually expanding. Please check back later. Meanwhile, you may find this information on reputable medical websites. Thank you for using our service.`);
+      }
+    })
+    .catch((error) => {
+      console.error('Error fetching data from the API:', error);
+      agent.add('Sorry, something went wrong. Please try again later.');
+    });
+}
+
+
+
+
+exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, response) => {
+  const agent = new WebhookClient({ request, response });
+  let intentMap = new Map();
+  intentMap.set('Default Welcome Intent', welcome);
+  intentMap.set('Default Fallback Intent', fallback);
+  intentMap.set('SummaryOfHealthCondition', getHealthConditionSummary);
+  intentMap.set('ProvidePhysician', getPhysicianDetails);
+  intentMap.set('NearbyHospitals', processUserQuery);
+  
+
+  agent.handleRequest(intentMap);
+});
