@@ -5,7 +5,7 @@ from io import StringIO
 import re
 
 # Configure OpenAI API key
-api_key = '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'
+api_key = '****************************************'
 openai.api_key = api_key
 
 
