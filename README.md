@@ -12,9 +12,9 @@ Transformative Healthcare Services: Chatbots have emerged as transformative tool
 Improved Accessibility: One of the key advantages of incorporating chatbots in healthcare is the enhanced accessibility they bring to users. Leveraging natural language processing, chatbots make health-related interactions more intuitive and user-friendly, bridging the gap between individuals and healthcare information.
 
 Enhanced User Engagement: Chatbots contribute to enhanced user engagement by providing instant responses to health queries. The use of advanced features ensures that the conversation flows naturally, creating a seamless and interactive experience for users seeking health-related information.
-
-
+![image](https://github.com/Satyasaimandlem/HealthMateBot/assets/129209796/e5919e7c-6bf1-4914-ae65-95d87eb23f9f)
 HealthamteBot Interface
+
 Why Healthcare Needs Chatbots:
 The healthcare industry faces unique challenges that make the integration of chatbots a necessity. Chatbots address these challenges by offering a reliable and interactive platform for immediate health-related inquiries.
 
